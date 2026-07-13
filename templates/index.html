@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>历史天气查询系统</title>
+    <style>
+        /* ===== 全局重置 & 设计变量 ===== */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'HarmonyOS Sans SC', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: #1C1C1E;
+            color: #FFFFFF;
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+        }
+
+        :root {
+            --primary: #007DFF;
+            --primary-dark: #005EB8;
+            --surface: #2C2C2E;
+            --card: #3A3A3C;
+            --success: #2ED573;
+            --warning: #FFA502;
+            --danger: #FF4757;
+            --info: #3498DB;
+            --radius: 12px;
+            --shadow: 0 4px 20px rgba(0,0,0,0.5);
+        }
+
+        .app-container {
+            max-width: 1100px;
+            width: 100%;
+            background: transparent;
+        }
+
+        /* ===== 标题 ===== */
+        .app-title {
+            text-align: center;
+            font-size: 28px;
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: 24px;
+            letter-spacing: 1px;
+        }
+
+        /* ===== 卡片 ===== */
+        .card {
+            background-color: var(--surface);
+            border-radius: var(--radius);
+            padding: 20px 24px;
+            margin-bottom: 20px;
+            box-shadow: var(--shadow);
+            border: 1px solid #3a3a3c;
+        }
+        .card-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .card-title .icon {
+            font-size: 20px;
+        }
+
+        /* ===== 表单行 ===== */
+        .form-row {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 12px 16px;
+            margin-bottom: 12px;
+        }
+        .form-row label {
+            font-size: 14px;
+            color: #ccc;
+        }
+        .form-row input, .form-row select {
+            background-color: var(--card);
+            border: none;
+            border-radius: 8px;
+            padding: 10px 14px;
+            color: #fff;
+            font-size: 14px;
+            outline: none;
+            transition: box-shadow 0.2s;
+            flex: 1 1 160px;
+            min-width: 120px;
+        }
+        .form-row input:focus, .form-row select:focus {
+            box-shadow: 0 0 0 2px var(--primary);
+        }
+        .form-row .btn {
+            background-color: var(--primary);
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 10px 24px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s, transform 0.1s;
+            white-space: nowrap;
+        }
+        .form-row .btn:hover {
+            background-color: var(--primary-dark);
+        }
+        .form-row .btn-outline {
+            background: transparent;
+            border: 1px solid var(--primary);
+            color: var(--primary);
+        }
+        .form-row .btn-outline:hover {
+            background: var(--primary);
+            color: #fff;
+        }
+        .form-row .btn-success {
+            background-color: var(--success);
+        }
+        .form-row .btn-success:hover {
+            background-color: #26b85f;
+        }
+        .form-row .btn-danger {
+            background-color: var(--danger);
+        }
+        .form-row .btn-danger:hover {
+            background-color: #e03a4a;
+        }
+        .form-row .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .coord-status {
+            font-size: 13px;
+            color: #aaa;
+            padding: 4px 10px;
+            background: var(--card);
+            border-radius: 20px;
+            display: inline-block;
+        }
+
+        /* ===== 状态条 ===== */
+        .status-bar {
+            background: var(--info);
+            color: #fff;
+            padding: 10px 16px;
+            border-radius: 8px;
+            font-size: 14px;
+            margin-top: 12px;
+            transition: background 0.3s;
+        }
+        .status-bar.success { background: var(--success); }
+        .status-bar.warning { background: var(--warning); }
+        .status-bar.danger { background: var(--danger); }
+
+        /* ===== 表格 ===== */
+        .table-wrap {
+            overflow-x: auto;
+            margin-top: 8px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        table th {
+            background: var(--card);
+            color: #fff;
+            padding: 10px 12px;
+            text-align: center;
+            font-weight: 600;
+        }
+        table td {
+            padding: 10px 12px;
+            text-align: center;
+            border-bottom: 1px solid #3a3a3c;
+            color: #ddd;
+        }
+        table tr:hover td {
+            background: #3d3d40;
+        }
+
+        .stats {
+            margin-top: 14px;
+            font-size: 15px;
+            color: #ccc;
+            background: var(--card);
+            padding: 10px 16px;
+            border-radius: 8px;
+            display: inline-block;
+        }
+
+        /* ===== 响应式 ===== */
+        @media (max-width: 700px) {
+            .form-row {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .form-row .btn {
+                width: 100%;
+            }
+            .app-title {
+                font-size: 22px;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="app-container">
+
+    <div class="app-title">🌤️ 历史天气查询系统</div>
+
+    <!-- 控制卡片 -->
+    <div class="card">
+        <div class="card-title"><span class="icon">🔧</span> 操作控制</div>
+
+        <!-- 城市定位行 -->
+        <div class="form-row">
+            <label>🏙️ 城市</label>
+            <input type="text" id="cityInput" placeholder="输入城市名称" value="厦门">
+            <button class="btn" id="locateBtn">📍 定位</button>
+            <span class="coord-status" id="coordDisplay">坐标: 未定位</span>
+        </div>
+
+        <!-- 手动坐标 -->
+        <div class="form-row">
+            <label>手动输入坐标</label>
+            <input type="text" id="latInput" placeholder="纬度" style="flex:0.6;min-width:80px;">
+            <input type="text" id="lonInput" placeholder="经度" style="flex:0.6;min-width:80px;">
+            <button class="btn btn-outline" id="setCoordBtn">✔ 设定</button>
+        </div>
+
+        <!-- 日期 -->
+        <div class="form-row">
+            <label>📅 开始</label>
+            <input type="date" id="startDate">
+            <label>📅 结束</label>
+            <input type="date" id="endDate">
+        </div>
+
+        <!-- 功能按钮 -->
+        <div class="form-row">
+            <button class="btn" id="fetchBtn">📥 爬取并保存</button>
+            <button class="btn btn-success" id="queryBtn">🔍 查询历史</button>
+            <button class="btn btn-outline" id="citiesBtn">📋 城市列表</button>
+            <button class="btn btn-danger" id="clearBtn">🧹 清空表格</button>
+        </div>
+
+        <!-- 状态条 -->
+        <div class="status-bar" id="statusBar">✨ 就绪，输入城市名后点击「定位」获取坐标</div>
+    </div>
+
+    <!-- 结果卡片 -->
+    <div class="card">
+        <div class="card-title"><span class="icon">📊</span> 查询结果</div>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>日期</th>
+                        <th>最高温(°C)</th>
+                        <th>最低温(°C)</th>
+                        <th>平均温(°C)</th>
+                        <th>降水量(mm)</th>
+                        <th>最大风速(km/h)</th>
+                    </tr>
+                </thead>
+                <tbody id="resultBody">
+                    <!-- 动态插入 -->
+                </tbody>
+            </table>
+        </div>
+        <div class="stats" id="statsInfo"></div>
+    </div>
+</div>
+
+<script>
+    // ==================== 工具函数 ====================
+    function setStatus(msg, type = 'info') {
+        const bar = document.getElementById('statusBar');
+        bar.textContent = msg;
+        bar.className = 'status-bar ' + type;
+    }
+
+    function updateCoordDisplay(lat, lon) {
+        const el = document.getElementById('coordDisplay');
+        if (lat !== null && lon !== null) {
+            el.textContent = `坐标: ${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+        } else {
+            el.textContent = '坐标: 未定位';
+        }
+    }
+
+    // 获取表单数据
+    function getFormData() {
+        const city = document.getElementById('cityInput').value.trim();
+        const start = document.getElementById('startDate').value;
+        const end = document.getElementById('endDate').value;
+        return { city, start, end };
+    }
+
+    // ==================== 日期默认值 ====================
+    (function setDefaultDates() {
+        const now = new Date();
+        const end = new Date(now);
+        end.setDate(end.getDate() - 1);
+        const start = new Date(end);
+        start.setDate(start.getDate() - 30);
+        document.getElementById('startDate').value = start.toISOString().split('T')[0];
+        document.getElementById('endDate').value = end.toISOString().split('T')[0];
+    })();
+
+    // ==================== API 调用 ====================
+    // 定位
+    document.getElementById('locateBtn').addEventListener('click', function() {
+        const city = document.getElementById('cityInput').value.trim();
+        if (!city) {
+            setStatus('请先输入城市名称', 'warning');
+            return;
+        }
+        setStatus(`正在定位 ${city} ...`, 'warning');
+        this.disabled = true;
+        fetch('/api/locate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ city })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                updateCoordDisplay(data.lat, data.lon);
+                document.getElementById('latInput').value = data.lat;
+                document.getElementById('lonInput').value = data.lon;
+                setStatus(`✅ 定位成功：${data.city} (${data.lat.toFixed(4)}, ${data.lon.toFixed(4)})`, 'success');
+            } else {
+                updateCoordDisplay(null, null);
+                setStatus(`❌ ${data.error}`, 'danger');
+            }
+        })
+        .catch(err => {
+            setStatus('❌ 定位请求失败', 'danger');
+            console.error(err);
+        })
+        .finally(() => {
+            this.disabled = false;
+        });
+    });
+
+    // 手动设定坐标
+    document.getElementById('setCoordBtn').addEventListener('click', function() {
+        const lat = parseFloat(document.getElementById('latInput').value);
+        const lon = parseFloat(document.getElementById('lonInput').value);
+        if (isNaN(lat) || isNaN(lon) || lat < -90 || lat > 90 || lon < -180 || lon > 180) {
+            setStatus('❌ 请输入有效的经纬度数字', 'danger');
+            return;
+        }
+        updateCoordDisplay(lat, lon);
+        setStatus(`✅ 手动设置坐标: (${lat.toFixed(4)}, ${lon.toFixed(4)})`, 'success');
+    });
+
+    // 爬取天气
+    document.getElementById('fetchBtn').addEventListener('click', function() {
+        const { city, start, end } = getFormData();
+        if (!city) { setStatus('请输入城市名称', 'warning'); return; }
+        if (!start || !end) { setStatus('请选择日期范围', 'warning'); return; }
+
+        let lat = parseFloat(document.getElementById('latInput').value);
+        let lon = parseFloat(document.getElementById('lonInput').value);
+        if (isNaN(lat) || isNaN(lon)) {
+            setStatus('请先定位或手动输入坐标', 'warning');
+            return;
+        }
+
+        setStatus(`⏳ 正在爬取 ${city} 的天气数据 (${start} ~ ${end}) ...`, 'warning');
+        this.disabled = true;
+        fetch('/api/fetch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ city, lat, lon, start_date: start, end_date: end })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                setStatus(`✅ ${data.message}`, 'success');
+                setTimeout(() => {
+                    document.getElementById('queryBtn').click();
+                }, 2000);
+            } else {
+                setStatus(`❌ ${data.error}`, 'danger');
+            }
+        })
+        .catch(err => {
+            setStatus('❌ 爬取请求失败', 'danger');
+            console.error(err);
+        })
+        .finally(() => {
+            this.disabled = false;
+        });
+    });
+
+    // 查询历史
+    document.getElementById('queryBtn').addEventListener('click', function() {
+        const { city, start, end } = getFormData();
+        if (!city) { setStatus('请输入城市名称', 'warning'); return; }
+
+        setStatus(`⏳ 正在查询 ${city} ...`, 'warning');
+        this.disabled = true;
+        fetch('/api/query', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ city, start_date: start, end_date: end })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                renderTable(data.records);
+                const count = data.count;
+                const stats = document.getElementById('statsInfo');
+                if (count === 0) {
+                    stats.textContent = '📊 无记录';
+                } else {
+                    let temps = data.records.filter(r => r.temperature_avg !== null).map(r => r.temperature_avg);
+                    let avg, max_t, min_t;
+                    if (temps.length > 0) {
+                        avg = (temps.reduce((a,b) => a+b, 0) / temps.length).toFixed(1);
+                        max_t = Math.max(...temps).toFixed(1);
+                        min_t = Math.min(...temps).toFixed(1);
+                        stats.textContent = `📈 共 ${count} 条记录 | 平均温度: ${avg}°C | 最高: ${max_t}°C | 最低: ${min_t}°C`;
+                    } else {
+                        stats.textContent = `📊 共 ${count} 条记录 (无温度数据)`;
+                    }
+                }
+                setStatus(`✅ 查询完成，共 ${count} 条记录`, 'success');
+            } else {
+                setStatus(`❌ ${data.error}`, 'danger');
+                document.getElementById('resultBody').innerHTML = '';
+                document.getElementById('statsInfo').textContent = '';
+            }
+        })
+        .catch(err => {
+            setStatus('❌ 查询请求失败', 'danger');
+            console.error(err);
+        })
+        .finally(() => {
+            this.disabled = false;
+        });
+    });
+
+    // 城市列表
+    document.getElementById('citiesBtn').addEventListener('click', function() {
+        setStatus('正在获取城市列表...', 'warning');
+        fetch('/api/cities')
+        .then(res => res.json())
+        .then(data => {
+            if (data.success && data.cities.length > 0) {
+                let msg = '📋 已存储天气数据的城市：\n';
+                data.cities.forEach(item => {
+                    const range = item.start ? ` (${item.start} ~ ${item.end})` : '';
+                    msg += `  • ${item.city}${range}\n`;
+                });
+                alert(msg);
+                setStatus(`✅ 共 ${data.cities.length} 个城市`, 'success');
+            } else {
+                alert('暂无城市数据');
+                setStatus('📭 数据库中暂无数据', 'info');
+            }
+        })
+        .catch(err => {
+            setStatus('❌ 获取城市列表失败', 'danger');
+            console.error(err);
+        });
+    });
+
+    // 清空表格
+    document.getElementById('clearBtn').addEventListener('click', function() {
+        document.getElementById('resultBody').innerHTML = '';
+        document.getElementById('statsInfo').textContent = '';
+        setStatus('🧹 表格已清空', 'info');
+    });
+
+    // ==================== 表格渲染 ====================
+    function renderTable(records) {
+        const tbody = document.getElementById('resultBody');
+        tbody.innerHTML = '';
+        if (records.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#888;">暂无数据</td></tr>';
+            return;
+        }
+        records.forEach(r => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+                <td>${r.date}</td>
+                <td>${r.temperature_max !== null ? r.temperature_max : '-'}</td>
+                <td>${r.temperature_min !== null ? r.temperature_min : '-'}</td>
+                <td>${r.temperature_avg !== null ? r.temperature_avg : '-'}</td>
+                <td>${r.precipitation !== null ? r.precipitation : '-'}</td>
+                <td>${r.wind_speed_max !== null ? r.wind_speed_max : '-'}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    // 初始状态
+    setStatus('✨ 就绪，输入城市名后点击「定位」获取坐标', 'info');
+</script>
+</body>
+</html>
